@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "816205432619",
+    "project_id": "nhombar-1dc0f",
+    "storage_bucket": "nhombar-1dc0f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:816205432619:android:c82acf9a9f490977e8a76e",
+        "android_client_info": {
+          "package_name": "vn.nhombar.nhombar"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDhFIfiSGM1TKRMSf84MB3_wXLqx46-JrA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
