@@ -186,6 +186,7 @@ public class MainActivity extends FlutterActivity {
                             snapshot.put("allowed", allowed);
                             snapshot.put("date", day);
                             snapshot.put("usedSeconds", allowed ? reader.total(day) : 0);
+                            snapshot.put("activeSeconds", allowed ? reader.activeSeconds(System.currentTimeMillis()) : 0);
                             runOnUiThread(() -> result.success(snapshot));
                         } catch (Exception exception) {
                             runOnUiThread(() -> result.error("device", "Chưa đọc được thời gian sử dụng. Hãy kiểm tra quyền trên điện thoại.", null));
