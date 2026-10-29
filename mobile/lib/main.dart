@@ -9,6 +9,7 @@ import 'core/strings.dart';
 import 'core/push.dart';
 import 'features/auth.dart';
 import 'features/home.dart';
+import 'features/child_time_gate.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -120,12 +121,15 @@ class _NhomBarAppState extends State<NhomBarApp> with WidgetsBindingObserver {
           : loading
           ? const Scaffold(body: Center(child: CircularProgressIndicator()))
           : signedIn
-          ? HomePage(
+          ? ChildTimeGate(
               api: api,
-              onLogout: () {
-                unawaited(push.stop());
-                setState(() => signedIn = false);
-              },
+              child: HomePage(
+                api: api,
+                onLogout: () {
+                  unawaited(push.stop());
+                  setState(() => signedIn = false);
+                },
+              ),
             )
           : AuthPage(
               api: api,

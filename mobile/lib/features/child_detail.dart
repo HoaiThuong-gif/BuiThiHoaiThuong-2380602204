@@ -218,21 +218,6 @@ class _ChildDetailState extends State<ChildDetail> {
                   'Giờ được dùng: ${'${rule?['startTime']}'.substring(0, 5)}–${'${rule?['endTime']}'.substring(0, 5)}. Phút còn lại không được dùng trong giờ nghỉ.',
                 ),
               ],
-              if (rule?['isEnabled'] == true &&
-                  rule?['strictMode'] == true &&
-                  devices.any((d) => d['deviceOwner'] != true)) ...[
-                const SizedBox(height: 12),
-                Material(
-                  color: Theme.of(context).colorScheme.errorContainer,
-                  borderRadius: BorderRadius.circular(12),
-                  child: const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: AppText(
-                      'Điện thoại chưa được thiết lập quyền quản lý sẽ chỉ có lời nhắc, chưa thể tự khóa. Bố mẹ cần hoàn tất thiết lập trước khi dùng tính năng khóa.',
-                    ),
-                  ),
-                ),
-              ],
               if (summaries.isEmpty)
                 const AppText(
                   'Báo cáo sẽ xuất hiện sau khi hoàn tất quyền và cập nhật từ điện thoại của con.',

@@ -308,7 +308,9 @@ public class GuardService extends Service implements TextToSpeech.OnInitListener
         if (shouldLock) {
             if (!manager.isDeviceOwnerApp(getPackageName())) {
                 vault.put("locked", "false");
-                vault.put("error", "Chưa thể áp dụng giới hạn vì điện thoại chưa được thiết lập quyền khóa. Hãy nhờ bố mẹ kiểm tra.");
+                if ("Chưa thể áp dụng giới hạn vì điện thoại chưa được thiết lập quyền khóa. Hãy nhờ bố mẹ kiểm tra.".equals(vault.get("error"))) {
+                    vault.remove("error");
+                }
                 return;
             }
             ComponentName admin = new ComponentName(this, FamilyAdminReceiver.class);
