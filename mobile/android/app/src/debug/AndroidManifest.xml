@@ -1,4 +1,0 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
-  <application android:usesCleartextTraffic="true" tools:replace="android:usesCleartextTraffic" />
-  <instrumentation android:name=".UsageProbe" android:targetPackage="vn.nhombar.nhombar" android:functionalTest="true" />
-</manifest>

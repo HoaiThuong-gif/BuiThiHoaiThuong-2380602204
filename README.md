@@ -1,50 +1,33 @@
-# Cách tải và chạy NhomBar từ đầu
+# Tải và chạy backend NhomBar từ đầu
 
-Hướng dẫn dùng PowerShell trên Windows, bắt đầu từ máy chưa có source.
+## Bước 1. Cài công cụ
 
-## Bước 1. Cài phần mềm
+Trên Windows, cài Git, .NET SDK 8, SQL Server và SQL Server Management Studio (SSMS). Nếu dùng Visual Studio, cài workload ASP.NET and web development.
 
-Cài lần lượt:
-
-1. Git for Windows.
-2. Flutter SDK có Dart từ 3.13.3 trở lên; thêm thư mục `flutter\bin` vào `PATH`.
-3. Android Studio và plugin Flutter, Dart. Trong SDK Manager, cài Android SDK Platform 37, Android SDK Build-Tools, Platform-Tools và Command-line Tools. Dùng JDK đi kèm Android Studio phù hợp với Gradle của dự án.
-4. .NET SDK 8. Nếu mở backend bằng Visual Studio, cài thêm workload **ASP.NET and web development**.
-5. SQL Server và SQL Server Management Studio (SSMS). Ghi nhớ tên instance đã cài, ví dụ `.` hoặc `.\SQLEXPRESS`.
-
-Mở PowerShell mới và kiểm tra:
+Mở PowerShell mới:
 
 ```powershell
 git --version
-flutter --version
 dotnet --list-sdks
-flutter doctor
-flutter doctor --android-licenses
 ```
 
-Chấp nhận các giấy phép Android. Sửa các lỗi liên quan Flutter/Android trong `flutter doctor` trước khi tiếp tục; không cần cài công cụ Windows desktop để chạy Android.
-
-## Bước 2. Tải source từ GitHub
-
-Mở terminal tại nơi muốn lưu source:
+## Bước 2. Tải nhánh backend
 
 ```powershell
-git clone https://github.com/HoaiThuong-gif/BuiThiHoaiThuong-2380602204.git bui-thi-hoai-thuong-2380602204
+git clone --branch backend --single-branch https://github.com/HoaiThuong-gif/BuiThiHoaiThuong-2380602204.git bui-thi-hoai-thuong-2380602204
 Set-Location bui-thi-hoai-thuong-2380602204
 ```
 
-Thư mục này gọi là **gốc dự án** trong các bước sau, có `backend`, `mobile` và `scripts`. Các terminal mới cần mở tại đây.
+Đây là gốc source cho các lệnh bên dưới. Trong Visual Studio có thể mở `backend/NhomBar.sln` và chọn `NhomBar.Api` làm dự án khởi động.
 
-## Bước 3. Cấu hình SQL Server và khóa đăng nhập
+## Bước 3. Kết nối SQL Server và tạo cấu hình riêng
 
-1. Mở Services, bảo đảm dịch vụ SQL Server đang chạy.
-2. Mở SSMS, chọn Windows Authentication và kết nối instance vừa cài.
-3. Tại gốc dự án, chạy đoạn sau; nhập đúng tên server đã kết nối trong SSMS:
+Bật dịch vụ SQL Server. Mở SSMS, đăng nhập bằng Windows Authentication và ghi đúng tên instance. Tại gốc source:
 
 ```powershell
 $serverName = Read-Host 'Tên SQL Server trong SSMS, ví dụ . hoặc .\SQLEXPRESS'
 $settingsPath = Join-Path (Get-Location) 'backend/appsettings.local.json'
-if (Test-Path -LiteralPath $settingsPath) { throw 'Đã có cấu hình riêng. Mở file hiện tại để chỉnh, không ghi đè.' }
+if (Test-Path -LiteralPath $settingsPath) { throw 'Đã có cấu hình riêng; mở file hiện tại để chỉnh, không ghi đè.' }
 $randomBytes = New-Object byte[] 48
 $generator = [Security.Cryptography.RandomNumberGenerator]::Create()
 try { $generator.GetBytes($randomBytes) } finally { $generator.Dispose() }
@@ -58,153 +41,83 @@ $settings | ConvertTo-Json -Depth 6 | Set-Content -Encoding UTF8 -LiteralPath $s
 Remove-Variable settings,randomBytes
 ```
 
-Đoạn lệnh tạo `backend/appsettings.local.json`, dùng tài khoản Windows hiện tại và khóa ngẫu nhiên. Không đưa file này lên Git. Cấu hình SQL trên dành cho chạy cục bộ.
+File cấu hình riêng không đưa lên Git. Chuỗi kết nối này dùng tài khoản Windows cho phát triển trên máy, tài khoản cần quyền tạo database khi cài lần đầu.
 
-## Bước 4. Tạo database bằng EF Core Migrations
-
-Tại gốc dự án:
+## Bước 4. Tạo database bằng migrations
 
 ```powershell
 ./scripts/Initialize-Local.ps1
 ```
 
-Script tải thư viện .NET, biên dịch và áp dụng migrations vào database `NhomBar2380602204`. Tài khoản Windows cần quyền tạo database. Trong SSMS, làm mới mục Databases để thấy kết quả.
+Script tải thư viện, biên dịch và áp dụng migrations vào `NhomBar2380602204`. Làm mới Databases trong SSMS để thấy kết quả.
 
-Khi đã có database và cần áp dụng migration mới, dùng:
+Khi cần cập nhật migrations sau này, tại gốc source:
 
 ```powershell
 $env:ASPNETCORE_ENVIRONMENT = 'Development'
 dotnet run --project backend/NhomBar.Api.csproj -- --migrate
 ```
 
-Không cần chạy cả hai lệnh cho cùng một lần thiết lập. Không xóa database hoặc chạy lại `schema.sql` trên database đang có dữ liệu.
+Không cần thực hiện cả hai cách cho cùng lần thiết lập. Không xóa database hoặc chạy lại `schema.sql` trên dữ liệu đang dùng.
 
-## Bước 5. Cấu hình gửi mã email
+## Bước 5. Cấu hình email OTP
 
-1. Tạo tài khoản Brevo.
-2. Thêm và xác minh địa chỉ gửi thư trong phần Senders.
-3. Tạo API key trong SMTP & API → API Keys. Không dùng mật khẩu email hoặc SMTP key.
-4. Tại gốc dự án:
+Trong Brevo, xác minh địa chỉ gửi rồi tạo API key ở SMTP & API → API Keys. Tại gốc source:
 
 ```powershell
 ./scripts/Configure-Email.ps1
 ```
 
-Nhập địa chỉ gửi đã xác minh và API key khi script hỏi. Khóa được lưu trong cấu hình riêng, không ghi vào source. Cần hoàn thành bước này để đăng ký/đăng nhập và nhận mã email.
+Nhập địa chỉ gửi đã xác minh và API key khi được hỏi. Không dùng mật khẩu Gmail hoặc SMTP key; không đưa khóa vào file cấu hình chung.
 
-## Bước 6. Cấu hình thông báo Firebase
+## Bước 6. Cấu hình Firebase cho backend
 
-1. Trong Firebase Console, tạo hoặc chọn dự án bạn có quyền quản lý.
-2. Đăng ký ứng dụng Android với package `vn.nhombar.nhombar`.
-3. Tải file cấu hình ứng dụng `google-services.json`, đặt vào `mobile/android/app/google-services.json`. Nếu dùng file có sẵn, cần quyền quản lý đúng dự án Firebase đó.
-4. Trong Project settings → Service accounts, tạo khóa tài khoản dịch vụ và tải JSON về vị trí riêng ngoài source.
-5. Tại gốc dự án:
+Trong Firebase Console, chọn đúng dự án của ứng dụng Android. Vào Project settings → Service accounts để tạo và tải khóa tài khoản dịch vụ JSON về vị trí riêng.
+
+Tại gốc source, nhập đường dẫn file vừa tải:
 
 ```powershell
-./scripts/Configure-Push.ps1
+$serviceFile = Read-Host 'Đường dẫn JSON tài khoản dịch vụ Firebase'
+$service = Get-Content -Raw -Encoding UTF8 -LiteralPath $serviceFile | ConvertFrom-Json
+if ($service.type -ne 'service_account' -or !$service.private_key) { throw 'Cần file tài khoản dịch vụ Firebase.' }
+New-Item -ItemType Directory -Force -Path secrets | Out-Null
+$privatePath = [IO.Path]::GetFullPath((Join-Path (Get-Location) 'secrets/firebase-service-account.local.json'))
+if ((Resolve-Path -LiteralPath $serviceFile).Path -ne $privatePath) {
+    Copy-Item -LiteralPath $serviceFile -Destination $privatePath
+}
+$settingsPath = Join-Path (Get-Location) 'backend/appsettings.local.json'
+$settings = Get-Content -Raw -Encoding UTF8 -LiteralPath $settingsPath | ConvertFrom-Json
+$settings | Add-Member -Force NoteProperty Push ([pscustomobject]@{
+    Firebase = [pscustomobject]@{ServiceAccountPath = $privatePath}
+})
+$settings | ConvertTo-Json -Depth 16 | Set-Content -Encoding UTF8 -LiteralPath $settingsPath
+Remove-Variable service,settings
 ```
 
-Nhập đường dẫn file tài khoản dịch vụ khi được hỏi. Hai file Firebase phải cùng dự án. File có `private_key` chỉ dùng trên backend, không chép vào `mobile` hoặc đưa lên Git.
+File riêng chỉ dùng trên máy chủ, không đưa lên Git hoặc vào ứng dụng Android. Android phải dùng `google-services.json` thuộc cùng dự án Firebase.
 
-## Bước 7. Chạy backend
+## Bước 7. Chạy API
 
-Mở một terminal tại gốc dự án:
+Tại gốc source:
 
 ```powershell
 ./scripts/Start-Backend.ps1
 ```
 
-Giữ terminal mở. Trong trình duyệt trên laptop, truy cập:
+Giữ terminal mở. Mở trình duyệt trên laptop:
 
 ```text
 http://127.0.0.1:5080/swagger
 ```
 
-Có thể mở `backend/NhomBar.sln` bằng Visual Studio để đọc và chỉnh backend. Lệnh trên chạy bằng .NET SDK, không bắt buộc dùng Visual Studio.
-
-Mở terminal thứ hai tại gốc dự án và kiểm tra:
+Mở terminal khác tại gốc source để kiểm tra:
 
 ```powershell
 Invoke-RestMethod 'http://127.0.0.1:5080/health'
 ```
 
-Phải nhận `status: ready` trước bước tiếp theo. Nếu lỗi, kiểm tra dịch vụ SQL, tên instance, quyền tài khoản và cấu hình ở bước 3.
+Phải nhận `status: ready`. Nếu không được, kiểm tra SQL Server, tên instance, quyền tài khoản và cấu hình ở bước 3. Không chạy thêm backend khi cổng 5080 đã được dùng bởi tiến trình đúng.
 
-## Bước 8. Tạo địa chỉ HTTPS để điện thoại kết nối
+Để kết nối ứng dụng Android qua Internet, thực hiện phần thiết lập HTTPS trong README nhánh `main`. Không dùng `localhost` của laptop làm địa chỉ máy chủ trên điện thoại.
 
-1. Tải Dev Tunnels CLI dành cho Windows theo [hướng dẫn Microsoft](https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started).
-2. Tại gốc dự án, tạo thư mục chứa công cụ:
-
-```powershell
-New-Item -ItemType Directory -Force -Path artifacts/tools
-```
-
-3. Đặt công cụ đã tải thành `artifacts/tools/devtunnel.exe`.
-4. Khi backend đang chạy, tại terminal thứ hai:
-
-```powershell
-./scripts/Start-HttpsTest.ps1
-```
-
-Đăng nhập Microsoft khi công cụ yêu cầu. Script tạo/dùng lại đường hầm và ghi URL thực vào `mobile/config/api.tunnel.local.json`. Không tự điền URL mẫu.
-
-Kiểm tra kết nối:
-
-```powershell
-$connection = Get-Content -Raw -Encoding UTF8 'mobile/config/api.tunnel.local.json' | ConvertFrom-Json
-Invoke-RestMethod ($connection.API_BASE_URL.TrimEnd('/') + '/health') -Headers @{Accept='application/json'}
-```
-
-Phải nhận `ready`. Giữ laptop, SQL Server, backend và đường hầm hoạt động; điện thoại cần có Internet.
-
-## Bước 9. Cắm điện thoại Android
-
-1. Bật Tùy chọn nhà phát triển và Gỡ lỗi USB trên điện thoại.
-2. Cắm cáp truyền dữ liệu, mở khóa máy, chấp nhận thông báo cho phép gỡ lỗi.
-3. Tại gốc dự án:
-
-```powershell
-flutter devices
-```
-
-Ghi lại mã thiết bị Android. Nếu không thấy, kiểm tra cáp/driver và quyền gỡ lỗi trên điện thoại.
-
-## Bước 10. Chạy ứng dụng Flutter
-
-Trong terminal tại gốc dự án:
-
-```powershell
-Set-Location mobile
-flutter pub get
-$deviceId = Read-Host 'Dán mã thiết bị Android từ flutter devices'
-flutter run -d $deviceId --dart-define-from-file=config/api.tunnel.local.json
-```
-
-Nếu dùng Android Studio: mở thư mục `mobile`, mở `lib/main.dart`, chọn điện thoại. Trong Run → Edit Configurations → Additional run args, nhập `--dart-define-from-file=config/api.tunnel.local.json` rồi bấm Run.
-
-Muốn nhập địa chỉ HTTPS khác đã kiểm tra, chạy tại `mobile`:
-
-```powershell
-$apiUrl = Read-Host 'Địa chỉ gốc HTTPS thật, không thêm /api hoặc /swagger'
-flutter run -d $deviceId "--dart-define=API_BASE_URL=$apiUrl"
-```
-
-Không dùng `localhost` làm địa chỉ API trên điện thoại. Đổi `API_BASE_URL` cần chạy/build lại app.
-
-## Bước 11. Vào ứng dụng lần đầu
-
-Trên điện thoại phụ huynh, đăng ký tài khoản rồi nhập mã nhận qua email. Tạo hồ sơ con và mở mã QR kết nối. Trên máy trẻ, chọn kết nối với bố mẹ, quét QR; phụ huynh đối chiếu thông tin và xác nhận.
-
-Cấp quyền theo thông báo: xem thời gian sử dụng để theo dõi, thông báo để nhận lời nhắc, máy ảnh để quét QR, vị trí khi đồng ý chia sẻ, micro khi đo tiếng ồn. Bật cập nhật và lời nhắc trên máy trẻ. Quét QR không tự cấp quyền khóa toàn bộ thiết bị Android.
-
-## Bước 12. Tạo APK để cài thử
-
-Tại thư mục `mobile`, với backend/HTTPS đã cấu hình:
-
-```powershell
-flutter build apk --debug --dart-define-from-file=config/api.tunnel.local.json
-```
-
-Lấy file `mobile/build/app/outputs/flutter-apk/app-debug.apk` tính từ gốc dự án, chép sang điện thoại và cho phép cài từ nguồn đã chọn. Đây là bản debug để thử.
-
-Để chạy lại hôm sau, mở SQL Server, thực hiện bước 7–8 rồi chạy/cài app. Không cần tạo lại database, tài khoản hoặc cấu hình email/Firebase nếu vẫn dùng máy và dịch vụ đã thiết lập.
+Khi chạy lại sau khi tắt máy, bật SQL Server rồi làm bước 7. Không cần tạo lại database hoặc tài khoản.
