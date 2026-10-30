@@ -1090,3 +1090,28 @@ GO
 
 COMMIT;
 GO
+
+BEGIN TRANSACTION;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261030010701_UserAvatar'
+)
+BEGIN
+    ALTER TABLE [Users] ADD [AvatarBytes] varbinary(max) NULL;
+END;
+GO
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261030010701_UserAvatar'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261030010701_UserAvatar', N'8.0.25');
+END;
+GO
+
+COMMIT;
+GO

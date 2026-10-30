@@ -926,6 +926,9 @@ namespace NhomBar.Api.Migrations
                     b.Property<bool>("Active")
                         .HasColumnType("bit");
 
+                    b.Property<byte[]>("AvatarBytes")
+                        .HasColumnType("varbinary(max)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 

@@ -1,7 +1,5 @@
 # Cách tải và chạy NhomBar từ đầu
 
-Hướng dẫn dùng PowerShell trên Windows, bắt đầu từ máy chưa có source.
-
 ## Bước 1. Cài phần mềm
 
 Cài lần lượt:

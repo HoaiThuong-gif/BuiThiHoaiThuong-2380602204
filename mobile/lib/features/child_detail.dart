@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../core/api.dart';
+import '../core/parent_contact.dart';
 import '../core/usage_window.dart';
 import '../core/widgets.dart';
 import 'device_tools.dart';
@@ -30,6 +31,8 @@ class ChildDetail extends StatefulWidget {
 
 class _ChildDetailState extends State<ChildDetail> {
   int revision = 0;
+  bool openingContacts = false;
+  List parentContacts = [];
   Json? latestProfile;
   final locationMap = MapController();
   bool mapReady = false, followLocation = true;
@@ -457,32 +460,18 @@ class _ChildDetailState extends State<ChildDetail> {
     },
   );
   Future<void> contacts() async {
+    if (openingContacts) return;
+    openingContacts = true;
     try {
-      final d = await api.get('/api/children/$id/contacts') as List;
+      try {
+        parentContacts = await api.get('/api/children/$id/contacts') as List;
+      } catch (_) {
+        // Khi mất mạng, vẫn cho mở Điện thoại hoặc dùng số vừa tải được.
+      }
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (c) => SimpleDialog(
-          title: const AppText('Liên hệ bố mẹ'),
-          children: [
-            for (final p in d)
-              SimpleDialogOption(
-                child: AppText(
-                  '${p['fullName']}\n${p['phoneNumber'] ?? 'Chưa thêm số điện thoại'}',
-                ),
-                onPressed: () => run(() async {
-                  if (p['phoneNumber'] != null) {
-                    await deviceChannel.invokeMethod('dial', {
-                      'number': p['phoneNumber'],
-                    });
-                  }
-                }),
-              ),
-          ],
-        ),
-      );
-    } catch (e) {
-      if (mounted) toast(context, Api.message(e));
+      await openParentDialer(context, parentContacts);
+    } finally {
+      openingContacts = false;
     }
   }
 

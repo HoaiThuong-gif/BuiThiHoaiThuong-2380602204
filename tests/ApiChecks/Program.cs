@@ -298,6 +298,38 @@ try
         purpose = "register"
     }));
     Assert((string)newTokens["user"]!["role"]! == "Parent", "Public registration creates a parent account only");
+    var profileClient = Client((string)newTokens["accessToken"]!);
+    const string profilePhoto = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=";
+    var savedProfile = await Json(await profileClient.PutAsJsonAsync("/api/users/me", new
+    {
+        fullName = "Hồ sơ đã cập nhật", phoneNumber = "+84901234567", avatarBase64 = profilePhoto,
+        role = "Admin", email = "changed@example.com", id = (string)pTokens["user"]!["id"]!
+    }));
+    Assert((string)savedProfile["fullName"]! == "Hồ sơ đã cập nhật" && (string)savedProfile["avatarBytes"]! == profilePhoto, "Own profile name and avatar saved in SQL Server");
+    Assert((string)savedProfile["role"]! == "Parent" && (string)savedProfile["email"]! == "register@example.com" && (string)savedProfile["id"]! == (string)newTokens["user"]!["id"]!, "Profile ignores supplied role, email and another user id");
+    var readProfile = await Json(await profileClient.GetAsync("/api/users/me"));
+    Assert((string)readProfile["avatarBytes"]! == profilePhoto, "Avatar survives a separate profile read");
+    Assert((await profileClient.PutAsJsonAsync("/api/users/me", new { fullName = " ", phoneNumber = "+84901234567" })).StatusCode == HttpStatusCode.BadRequest, "Blank profile name rejected");
+    Assert((await profileClient.PutAsJsonAsync("/api/users/me", new { fullName = "Tên", avatarBase64 = "invalid-image" })).StatusCode == HttpStatusCode.BadRequest, "Invalid avatar rejected");
+    Assert((await profileClient.PutAsJsonAsync("/api/users/me", new { fullName = "Tên", phoneNumber = "123" })).StatusCode == HttpStatusCode.BadRequest, "Invalid contact number rejected");
+    var removedPhoto = await Json(await profileClient.PutAsJsonAsync("/api/users/me", new { fullName = "Hồ sơ đã cập nhật", removeAvatar = true }));
+    Assert(removedPhoto["avatarBytes"] == null, "Own avatar can be removed");
+    var oldSession = newTokens;
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var userId = Guid.Parse((string)newTokens["user"]!["id"]!);
+        foreach (var challenge in await db.EmailOtpChallenges.Where(x => x.UserId == userId).ToListAsync())
+            challenge.CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-2);
+        await db.SaveChangesAsync();
+    }
+    var originalGuest = guest;
+    guest = new HttpClient(app.GetTestServer().CreateHandler(ctx => ctx.Connection.RemoteIpAddress = IPAddress.Parse("127.0.0.3"))) { BaseAddress = new Uri("https://localhost") };
+    newTokens = await Login("register@example.com");
+    Assert((await profileClient.GetAsync("/api/users/me")).StatusCode == HttpStatusCode.Unauthorized, "New OTP login invalidates previous device access token");
+    Assert((await guest.PostAsJsonAsync("/api/auth/refresh", new { refreshToken = (string)oldSession["refreshToken"]! })).StatusCode == HttpStatusCode.Unauthorized, "Previous device cannot resume through refresh after new OTP login");
+    guest.Dispose();
+    guest = originalGuest;
     using (var scope = app.Services.CreateScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();

@@ -22,6 +22,102 @@ class _AuthPageState extends State<AuthPage> {
   Json? challenge;
   String? error;
   String purpose = 'login';
+
+  Future<void> signInWithBiometrics() async {
+    if (busy) return;
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      final enabled = await widget.api.biometrics.enabled(Api.baseUrl);
+      if (!mounted) return;
+      if (!enabled) {
+        await showDialog<void>(
+          context: context,
+          builder: (dialog) => AlertDialog(
+            title: const AppText('Chưa bật sinh trắc học cho ứng dụng'),
+            content: const AppText(
+              'Hãy đăng nhập bằng email, mật khẩu và OTP trước, sau đó bật sinh trắc học trong Hồ sơ cá nhân.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialog),
+                child: const AppText('Đã hiểu'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+      final types = await widget.api.biometrics.available();
+      if (!mounted) return;
+      if (types.isEmpty) {
+        toast(
+          context,
+          'Android chưa cung cấp sinh trắc học đã đăng ký. Hãy kiểm tra Cài đặt của điện thoại.',
+        );
+        return;
+      }
+      if (await widget.api.biometricSignIn()) {
+        if (mounted) widget.onSignedIn();
+      } else if (mounted) {
+        setState(
+          () =>
+              error = 'Chưa xác thực. Bạn có thể dùng email, mật khẩu và OTP.',
+        );
+      }
+    } catch (e) {
+      if (mounted) setState(() => error = Api.message(e));
+    } finally {
+      if (mounted) {
+        setState(() => busy = false);
+      }
+    }
+  }
+
+  Future<void> offerBiometrics() async {
+    if (await widget.api.biometrics.enabled(
+      Api.baseUrl,
+      widget.api.user?['id'] as String?,
+    )) {
+      return;
+    }
+    if ((await widget.api.biometrics.available()).isEmpty || !mounted) return;
+    final enable = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const AppText('Bật đăng nhập sinh trắc học?'),
+        content: const AppText(
+          'Lần sau, dùng sinh trắc học của Android để mở phiên còn hiệu lực. Bạn cũng có thể bật hoặc tắt trong Hồ sơ cá nhân.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const AppText('Để sau'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const AppText('Bật'),
+          ),
+        ],
+      ),
+    );
+    if (enable == true) {
+      try {
+        final enabled = await widget.api.enableBiometrics();
+        if (mounted) {
+          toast(
+            context,
+            enabled ? 'Đã bật đăng nhập sinh trắc học.' : 'Chưa bật sinh trắc học. Bạn vẫn có thể dùng mật khẩu và OTP.',
+          );
+        }
+      } catch (e) {
+        if (mounted) toast(context, Api.message(e));
+      }
+    }
+  }
+
   @override
   void dispose() {
     email.dispose();
@@ -60,7 +156,8 @@ class _AuthPageState extends State<AuthPage> {
             'purpose': purpose,
           });
           await widget.api.save(Map<String, dynamic>.from(data as Map));
-          widget.onSignedIn();
+          await offerBiometrics();
+          if (mounted && widget.api.token != null) widget.onSignedIn();
         }
       } else {
         purpose = reset
@@ -132,6 +229,18 @@ class _AuthPageState extends State<AuthPage> {
                     style: Theme.of(c).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 20),
+                  if (challenge == null && !reset && !register) ...[
+                    FilledButton.icon(
+                      onPressed: busy ? null : signInWithBiometrics,
+                      icon: const Icon(Icons.fingerprint),
+                      label: const AppText('Đăng nhập sinh trắc học'),
+                    ),
+                    const SizedBox(height: 12),
+                    const AppText(
+                      'Hoặc dùng email và mật khẩu bên dưới. Cách này vẫn cần OTP.',
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                   if (challenge == null) ...[
                     if (register && !reset)
                       Padding(

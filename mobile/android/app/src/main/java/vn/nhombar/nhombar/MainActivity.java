@@ -10,7 +10,7 @@ import android.speech.tts.TextToSpeech;
 import android.speech.tts.Voice;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.messaging.FirebaseMessaging;
-import io.flutter.embedding.android.FlutterActivity;
+import io.flutter.embedding.android.FlutterFragmentActivity;
 import io.flutter.embedding.engine.FlutterEngine;
 import io.flutter.plugin.common.EventChannel;
 import io.flutter.plugin.common.MethodCall;
@@ -28,7 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 // MethodChannel nối lời gọi Dart với API Android; EventChannel chuyển sự kiện về Dart.
-public class MainActivity extends FlutterActivity {
+public class MainActivity extends FlutterFragmentActivity {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private TextToSpeech preview;
 
@@ -229,11 +229,22 @@ public class MainActivity extends FlutterActivity {
                     result.success(null);
                     break;
                 case "dial":
-                    String number = stringArgument(call, "number", "");
-                    if (!number.matches("[+0-9 ()-]{1,30}")) {
+                    String number = stringArgument(call, "number", "").trim();
+                    if (!number.isEmpty() && !number.matches("[+0-9 ()-]{1,30}")) {
                         throw new IllegalStateException("Số điện thoại chưa đúng.");
                     }
-                    startActivity(new Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null)));
+                    number = number.replaceAll("[ ()-]", "");
+                    if (!number.isEmpty() && !number.matches("\\+?[0-9]{3,15}")) {
+                        throw new IllegalStateException("Số điện thoại chưa đúng.");
+                    }
+                    // Không yêu cầu quyền CALL_PHONE và không tự thực hiện cuộc gọi.
+                    Intent dialIntent = new Intent(Intent.ACTION_DIAL,
+                            number.isEmpty() ? Uri.parse("tel:") : Uri.fromParts("tel", number, null));
+                    try {
+                        startActivity(dialIntent);
+                    } catch (android.content.ActivityNotFoundException missingDialer) {
+                        throw new IllegalStateException("Thiết bị chưa có ứng dụng Điện thoại để gọi.");
+                    }
                     result.success(null);
                     break;
                 default:

@@ -9,7 +9,7 @@ public record EmailInput(string Email);
 public record RefreshInput(string RefreshToken);
 public record ResetInput(Guid ChallengeId, string Code, string Password);
 public record PasswordInput(string CurrentPassword, string NewPassword);
-public record ProfileInput(string FullName, string? PhoneNumber, bool? SmsAlertsEnabled = null, bool? EmailReportsEnabled = null);
+public record ProfileInput(string FullName, string? PhoneNumber, bool? SmsAlertsEnabled = null, bool? EmailReportsEnabled = null, string? AvatarBase64 = null, bool RemoveAvatar = false);
 
 public static class AuthEndpoints
 {
@@ -44,6 +44,10 @@ public static class AuthEndpoints
             Check.That(r.Purpose is "register" or "login", "Yêu cầu xác nhận không hợp lệ.");
             var u = await security.VerifyCode(r.ChallengeId, r.Code, r.Purpose);
             u.EmailVerified = true;
+            // Đăng nhập OTP mới kết thúc phiên cũ của phụ huynh/admin trên máy khác.
+            // Không thay đổi phiên QR dành cho trẻ em.
+            u.SecurityStamp = Guid.NewGuid().ToString();
+            u.UpdatedAt = DateTimeOffset.UtcNow;
             return await security.Tokens(u);
         });
         auth.MapPost("/resend-otp", async (OtpInput r, AppDb db, Security security) =>
@@ -119,6 +123,29 @@ public static class AuthEndpoints
             });
         }).RequireAuthorization();
         app.MapGet("/api/users/me", async (Access a, AppDb db) => Security.Profile((await db.Users.FindAsync(a.UserId))!)).RequireAuthorization().WithTags("Tài khoản");
-        app.MapPut("/api/users/me", async (ProfileInput r, Access a, AppDb db, IConfiguration config) => { Check.That(!a.Child, "Thông tin của con do bố mẹ quản lý.", 403); var u = await db.Users.FindAsync(a.UserId); var sms = r.SmsAlertsEnabled ?? u!.SmsAlertsEnabled; Check.That(!sms || a.Parent && System.Text.RegularExpressions.Regex.IsMatch(r.PhoneNumber ?? "", @"^\+[1-9]\d{7,14}$"), "Để nhận tin nhắn, hãy nhập số điện thoại bắt đầu bằng mã quốc gia, ví dụ +84901234567."); Check.That(!sms || !string.IsNullOrWhiteSpace(config["Twilio:AccountSid"]), "Gửi tin nhắn chưa sẵn sàng. Bạn vẫn nhận được thông báo trong ứng dụng.", 503); u!.FullName = Check.Text(r.FullName); u.PhoneNumber = r.PhoneNumber; u.SmsAlertsEnabled = sms; if (r.EmailReportsEnabled != null) { Check.That(a.Parent, "Chỉ phụ huynh được đăng ký báo cáo.", 403); u.EmailReportsEnabled = r.EmailReportsEnabled.Value; } await db.SaveChangesAsync(); return Security.Profile(u); }).RequireAuthorization().WithTags("Tài khoản");
+        app.MapPut("/api/users/me", async (ProfileInput r, Access a, AppDb db, IConfiguration config) =>
+        {
+            Check.That(!a.Child, "Thông tin của con do bố mẹ quản lý.", 403);
+            var u = (await db.Users.FindAsync(a.UserId))!;
+            var fullName = Check.Text(r.FullName);
+            var phone = string.IsNullOrWhiteSpace(r.PhoneNumber) ? null : r.PhoneNumber.Trim();
+            Check.That(phone == null || System.Text.RegularExpressions.Regex.IsMatch(phone, @"^\+[1-9]\d{7,14}$"), "Số điện thoại cần mã quốc gia, ví dụ +84901234567.");
+            var sms = r.SmsAlertsEnabled ?? u.SmsAlertsEnabled;
+            Check.That(!sms || a.Parent && phone != null, "Để nhận tin nhắn, hãy nhập số điện thoại bắt đầu bằng mã quốc gia, ví dụ +84901234567.");
+            Check.That(!sms || !string.IsNullOrWhiteSpace(config["Twilio:AccountSid"]), "Gửi tin nhắn chưa sẵn sàng. Bạn vẫn nhận được thông báo trong ứng dụng.", 503);
+            if (r.EmailReportsEnabled != null)
+                Check.That(a.Parent, "Chỉ phụ huynh được đăng ký báo cáo.", 403);
+            Check.That(!r.RemoveAvatar || string.IsNullOrEmpty(r.AvatarBase64), "Hãy chọn ảnh mới hoặc xóa ảnh.");
+            var avatar = string.IsNullOrEmpty(r.AvatarBase64) ? null : AvatarValidation.Read(r.AvatarBase64);
+            // Chỉ sửa tài khoản trong JWT; email và vai trò không có trong Input.
+            u.FullName = fullName;
+            u.PhoneNumber = phone;
+            u.SmsAlertsEnabled = sms;
+            if (r.EmailReportsEnabled != null) u.EmailReportsEnabled = r.EmailReportsEnabled.Value;
+            if (r.RemoveAvatar) u.AvatarBytes = null;
+            else if (avatar != null) u.AvatarBytes = avatar;
+            await db.SaveChangesAsync();
+            return Security.Profile(u);
+        }).RequireAuthorization().WithTags("Tài khoản");
     }
 }

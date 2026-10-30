@@ -8,6 +8,7 @@ public abstract class Row
 }
 public class User : Row
 {
+    public byte[]? AvatarBytes { get; set; }
     public bool DeviceOnly
     {
         get; set;

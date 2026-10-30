@@ -47,7 +47,7 @@ public class Security(AppDb db, IConfiguration config, ICodeSender sender)
     public static string RandomToken() => Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
     public string PasswordHash(User user, string value) => passwords.HashPassword(user, value);
     public bool PasswordOk(User user, string value) => passwords.VerifyHashedPassword(user, user.PasswordHash, value) != PasswordVerificationResult.Failed;
-    public static object Profile(User u) => new { u.Id, u.FullName, email = u.Role == "Child" ? null : u.Email, u.Role, u.PhoneNumber, u.EmailVerified, u.Active, u.SmsAlertsEnabled, u.EmailReportsEnabled };
+    public static object Profile(User u) => new { u.Id, u.FullName, u.AvatarBytes, email = u.Role == "Child" ? null : u.Email, u.Role, u.PhoneNumber, u.EmailVerified, u.Active, u.SmsAlertsEnabled, u.EmailReportsEnabled };
     public async Task<object> Tokens(User user, Guid? deviceId = null)
     {
         var now = DateTimeOffset.UtcNow;

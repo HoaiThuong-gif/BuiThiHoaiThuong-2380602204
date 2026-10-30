@@ -7,6 +7,7 @@ import '../core/api.dart';
 import '../core/widgets.dart';
 import 'child_detail.dart';
 import 'device_tools.dart';
+import 'profile.dart';
 import 'child_access_setup.dart';
 
 class HomePage extends StatefulWidget {
@@ -354,7 +355,15 @@ class _HomePageState extends State<HomePage> {
   Widget account() => ListView(
     padding: const EdgeInsets.all(20),
     children: [
-      const CircleAvatar(radius: 36, child: Icon(Icons.person, size: 36)),
+      CircleAvatar(
+        radius: 36,
+        backgroundImage: api.user?['avatarBytes'] is String
+            ? MemoryImage(base64Decode(api.user!['avatarBytes'] as String))
+            : null,
+        child: api.user?['avatarBytes'] == null
+            ? const Icon(Icons.person, size: 36)
+            : null,
+      ),
       const SizedBox(height: 16),
       AppText(
         '${api.user?['fullName']}',
@@ -385,58 +394,20 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
-            if (parent || admin)
-              ListTile(
-                leading: const Icon(Icons.edit_outlined),
-                title: const AppText('Thông tin cá nhân'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => inputForm(
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const AppText('Hồ sơ cá nhân'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                await Navigator.push(
                   context,
-                  'Thông tin cá nhân',
-                  [
-                    Field(
-                      'fullName',
-                      'Họ và tên',
-                      value: '${api.user?['fullName']}',
-                    ),
-                    Field(
-                      'phoneNumber',
-                      'Số điện thoại liên hệ',
-                      value: api.user?['phoneNumber'] as String? ?? '',
-                      keyboard: TextInputType.phone,
-                      required: false,
-                    ),
-                    if (parent)
-                      Field(
-                        'sms',
-                        'Nhận tin nhắn khi con cần giúp đỡ',
-                        value: api.user?['smsAlertsEnabled'] == true
-                            ? 'Có'
-                            : 'Không',
-                        choices: const ['Có', 'Không'],
-                      ),
-                    if (parent)
-                      Field(
-                        'emailReports',
-                        'Nhận báo cáo hằng ngày qua email',
-                        value: api.user?['emailReportsEnabled'] == true
-                            ? 'Có'
-                            : 'Không',
-                        choices: const ['Có', 'Không'],
-                      ),
-                  ],
-                  onSave: (v) async {
-                    final u = await api.put('/api/users/me', {
-                      ...v,
-                      if (parent) 'smsAlertsEnabled': v['sms'] == 'Có',
-                      if (parent)
-                        'emailReportsEnabled': v['emailReports'] == 'Có',
-                    });
-                    api.user = Map<String, dynamic>.from(u as Map);
-                    if (mounted) setState(() => revision++);
-                  },
-                ),
-              ),
+                  MaterialPageRoute<void>(
+                    builder: (_) => ProfilePage(api: api),
+                  ),
+                );
+                if (mounted) setState(() => revision++);
+              },
+            ),
             if (parent)
               ListTile(
                 leading: const Icon(Icons.pin_outlined),
@@ -533,6 +504,31 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
       const SizedBox(height: 20),
+      if (parent || admin)
+        FutureBuilder<bool>(
+          future: api.biometrics.enabled(
+            Api.baseUrl,
+            api.user?['id'] as String?,
+          ),
+          builder: (_, snapshot) => snapshot.data != true
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: OutlinedButton.icon(
+                    onPressed: () => action(() async {
+                      final locked = await api.lock();
+                      if (!locked && mounted) {
+                        toast(
+                          context,
+                          'Chưa thể khóa ứng dụng. Hãy kiểm tra tùy chọn sinh trắc học trong Hồ sơ cá nhân.',
+                        );
+                      }
+                    }),
+                    icon: const Icon(Icons.lock_outline),
+                    label: const AppText('Khóa ứng dụng'),
+                  ),
+                ),
+        ),
       OutlinedButton.icon(
         onPressed: () => action(() async {
           if (!parent && !admin) {

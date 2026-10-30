@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/api.dart';
+import 'core/appearance.dart';
 import 'core/strings.dart';
 import 'core/push.dart';
 import 'features/auth.dart';
@@ -36,7 +37,11 @@ class _NhomBarAppState extends State<NhomBarApp> with WidgetsBindingObserver {
     );
     api.onSessionEnded = () {
       unawaited(push.stop());
-      if (mounted) setState(() => signedIn = false);
+      if (mounted) {
+        setState(() {
+          signedIn = false;
+        });
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           navigatorKey.currentState?.popUntil((route) => route.isFirst);
@@ -75,8 +80,12 @@ class _NhomBarAppState extends State<NhomBarApp> with WidgetsBindingObserver {
       brightness: b,
     ),
     scaffoldBackgroundColor: b == Brightness.light
-        ? const Color(0xFFF4F8FA)
-        : null,
+        ? Appearance.colors[appearance.background]
+        : Color.lerp(
+            const Color(0xFF12191B),
+            Appearance.colors[appearance.background],
+            0.08,
+          ),
     inputDecorationTheme: const InputDecorationTheme(
       border: OutlineInputBorder(
         borderRadius: BorderRadius.all(Radius.circular(14)),
@@ -93,51 +102,65 @@ class _NhomBarAppState extends State<NhomBarApp> with WidgetsBindingObserver {
     ),
   );
   @override
-  Widget build(BuildContext c) => ValueListenableBuilder<Locale>(
-    valueListenable: appLocale,
-    builder: (context, locale, _) => MaterialApp(
-      navigatorKey: navigatorKey,
-      title: 'NhomBar',
-      debugShowCheckedModeBanner: false,
-      locale: locale,
-      supportedLocales: const [Locale('vi'), Locale('en')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: theme(Brightness.light),
-      darkTheme: theme(Brightness.dark),
-      home: !api.configured
-          ? const Scaffold(
-              body: SafeArea(
-                child: Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(28),
-                    child: AppText(
-                      'Ứng dụng chưa sẵn sàng kết nối. Vui lòng liên hệ người cung cấp ứng dụng để được hỗ trợ.',
-                      textAlign: TextAlign.center,
+  Widget build(BuildContext c) => AnimatedBuilder(
+    animation: appearance,
+    builder: (context, _) => ValueListenableBuilder<Locale>(
+      valueListenable: appLocale,
+      builder: (context, locale, _) => MaterialApp(
+        navigatorKey: navigatorKey,
+        title: 'NhomBar',
+        debugShowCheckedModeBanner: false,
+        locale: locale,
+        supportedLocales: const [Locale('vi'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        theme: theme(Brightness.light),
+        darkTheme: theme(Brightness.dark),
+        builder: (context, child) {
+          final media = MediaQuery.of(context);
+          return MediaQuery(
+            data: media.copyWith(
+              textScaler: TextScaler.linear(
+                media.textScaler.scale(1) * appearance.scale,
+              ),
+            ),
+            child: child!,
+          );
+        },
+        home: !api.configured
+            ? const Scaffold(
+                body: SafeArea(
+                  child: Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(28),
+                      child: AppText(
+                        'Ứng dụng chưa sẵn sàng kết nối. Vui lòng liên hệ người cung cấp ứng dụng để được hỗ trợ.',
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            )
-          : loading
-          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-          : signedIn
-          ? ChildTimeGate(
-              api: api,
-              child: HomePage(
+              )
+            : loading
+            ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+            : signedIn
+            ? ChildTimeGate(
                 api: api,
-                onLogout: () {
-                  unawaited(push.stop());
-                  setState(() => signedIn = false);
+                child: HomePage(
+                  api: api,
+                  onLogout: () {
+                    unawaited(push.stop());
+                    setState(() => signedIn = false);
+                  },
+                ),
+              )
+            : AuthPage(
+                api: api,
+                onSignedIn: () {
+                  setState(() => signedIn = true);
+                  unawaited(push.start());
                 },
               ),
-            )
-          : AuthPage(
-              api: api,
-              onSignedIn: () {
-                setState(() => signedIn = true);
-                unawaited(push.start());
-              },
-            ),
+      ),
     ),
   );
 }

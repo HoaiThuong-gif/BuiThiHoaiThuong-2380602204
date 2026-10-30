@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../core/api.dart';
+import '../core/parent_contact.dart';
 import '../core/usage_window.dart';
 import '../core/widgets.dart';
 
@@ -25,6 +25,7 @@ class _ChildTimeGateState extends State<ChildTimeGate>
   Json? policy;
   String? childId, deviceId;
   List contacts = [];
+  bool openingContacts = false;
   int localSeconds = 0;
   int activeSeconds = 0;
   bool readingUsage = false;
@@ -230,75 +231,21 @@ class _ChildTimeGateState extends State<ChildTimeGate>
   }
 
   Future<void> callParent() async {
+    if (openingContacts) return;
+    openingContacts = true;
     try {
-      if (childId != null) {
-        contacts =
-            await widget.api.get('/api/children/$childId/contacts') as List;
-      }
-    } catch (_) {
-      /* Dùng số liên hệ đã lưu khi tạm mất mạng. */
-    }
-    if (!mounted) return;
-    final available = contacts
-        .where((p) => '${p['phoneNumber'] ?? ''}'.trim().isNotEmpty)
-        .toList();
-    if (available.isEmpty) {
-      await showDialog<void>(
-        context: context,
-        builder: (dialog) => AlertDialog(
-          title: const AppText('Chưa có số điện thoại bố mẹ'),
-          content: const AppText(
-            'Nhờ bố mẹ mở NhomBar trên máy của bố mẹ, vào Tài khoản → Thông tin cá nhân, bổ sung số điện thoại và lưu lại.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialog),
-              child: const AppText('Đã hiểu'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-    final selected = available.length == 1
-        ? available.first
-        : await showDialog<dynamic>(
-            context: context,
-            builder: (dialog) => SimpleDialog(
-              title: const AppText('Liên hệ bố mẹ'),
-              children: [
-                for (final contact in available)
-                  SimpleDialogOption(
-                    onPressed: () => Navigator.pop(dialog, contact),
-                    child: AppText(
-                      '${contact['fullName']}\n${contact['phoneNumber']}',
-                    ),
-                  ),
-              ],
-            ),
-          );
-    if (selected == null) return;
-    try {
-      final number = '${selected['phoneNumber']}'.replaceAll(
-        RegExp(r'[^0-9+]'),
-        '',
-      );
-      if (number.isEmpty ||
-          !await launchUrl(
-            Uri(scheme: 'tel', path: number),
-            mode: LaunchMode.externalApplication,
-          )) {
-        if (mounted) {
-          toast(context, 'Chưa mở được trình quay số trên điện thoại này.');
+      try {
+        if (childId != null) {
+          contacts =
+              await widget.api.get('/api/children/$childId/contacts') as List;
         }
+      } catch (_) {
+        // Mất mạng thì dùng số liên hệ đã lưu cùng quy tắc thời gian.
       }
-    } catch (_) {
-      if (mounted) {
-        toast(
-          context,
-          'Chưa mở được trình quay số. Hãy nhờ bố mẹ kiểm tra ứng dụng Điện thoại.',
-        );
-      }
+      if (!mounted) return;
+      await openParentDialer(context, contacts);
+    } finally {
+      openingContacts = false;
     }
   }
 

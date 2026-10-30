@@ -6,6 +6,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import 'appearance.dart';
+import 'biometric_login.dart';
+
 typedef Json = Map<String, dynamic>;
 const deviceChannel = MethodChannel('vn.nhombar/device');
 
@@ -20,6 +23,7 @@ class Api {
     ),
   );
   final storage = const FlutterSecureStorage();
+  final biometrics = BiometricLogin();
   Json? user;
   VoidCallback? onSessionEnded;
   VoidCallback? onNoticeOpened;
@@ -103,8 +107,11 @@ class Api {
 
   Future<bool> restore() async {
     if (!configured) return false;
-    token = await storage.read(key: 'access');
     final role = await storage.read(key: 'role');
+    // Phiên phụ huynh/admin chỉ mở bằng OTP hoặc sinh trắc học + backend.
+    // Luồng QR và dịch vụ nền của con giữ nguyên.
+    if (role != 'Child') return false;
+    token = await storage.read(key: 'access');
     if (role != null) user = {'role': role};
     final cachedProfile = await storage.read(key: 'profile');
     if (cachedProfile != null) {
@@ -126,6 +133,7 @@ class Api {
     try {
       user = Map<String, dynamic>.from(await get('/api/users/me'));
       await storage.write(key: 'profile', value: jsonEncode(user));
+      await appearance.selectAccount('$baseUrl/${user?['id']}');
       return true;
     } catch (e) {
       if (e is DioException &&
@@ -133,17 +141,29 @@ class Api {
         return false;
       }
       // A temporary outage must not look like the user signed out.
-      return token != null && user?['role'] != null;
+      final restored = token != null && user?['role'] != null;
+      if (restored) await appearance.selectAccount('$baseUrl/${user?['id']}');
+      return restored;
     }
   }
 
   Future<void> save(Json data) async {
+    final nextUser = Map<String, dynamic>.from(data['user'] as Map);
+    final enrolled = await storage.read(key: 'biometricUser');
+    if (nextUser['role'] == 'Child' ||
+        enrolled != null && enrolled != nextUser['id']) {
+      await biometrics.disable();
+    }
     token = data['accessToken'] as String;
-    user = Map<String, dynamic>.from(data['user'] as Map);
+    user = nextUser;
     await storage.write(key: 'access', value: token);
     await storage.write(key: 'role', value: user?['role'] as String?);
     await storage.write(key: 'profile', value: jsonEncode(user));
     await storage.write(key: 'refresh', value: data['refreshToken'] as String);
+    if (appearanceAccount != user?['id']) {
+      appearanceAccount = user?['id'] as String?;
+      await appearance.selectAccount('$baseUrl/$appearanceAccount');
+    }
     if (user?['role'] == 'Child') {
       try {
         await deviceChannel.invokeMethod('credentials', {
@@ -157,6 +177,53 @@ class Api {
     }
   }
 
+  String? appearanceAccount;
+
+  Future<void> cacheProfile(Json profile) async {
+    user = profile;
+    await storage.write(key: 'profile', value: jsonEncode(profile));
+  }
+
+  Future<bool> enableBiometrics() async {
+    if (user == null || user?['role'] == 'Child') return false;
+    if (!await biometrics.authenticate()) return false;
+    try {
+      await refresh(); // Chỉ bật khi backend xác nhận phiên vẫn còn hiệu lực.
+    } catch (e) {
+      if (e is DioException &&
+          [400, 401, 403].contains(e.response?.statusCode)) {
+        await clear(endMonitoring: false);
+      }
+      rethrow;
+    }
+    await biometrics.enable(user!['id'] as String, baseUrl);
+    return true;
+  }
+
+  Future<bool> biometricSignIn() async {
+    if (!await biometrics.enabled(baseUrl)) return false;
+    if (!await biometrics.authenticate()) return false;
+    final owner = await storage.read(key: 'biometricUser');
+    try {
+      // Không dùng access token/profile cache để bỏ qua backend.
+      token = null;
+      user = null;
+      await refresh();
+      if (user?['id'] != owner || user?['role'] == 'Child') {
+        await clear(endMonitoring: false);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      if (e is DioException &&
+              [400, 401, 403].contains(e.response?.statusCode) ||
+          e is PlatformException && e.code == 'session') {
+        await clear(endMonitoring: false);
+      }
+      rethrow;
+    }
+  }
+
   Future<void> refresh() async {
     if (user?['role'] == 'Child') {
       final response = await deviceChannel.invokeMethod<String>(
@@ -166,6 +233,12 @@ class Api {
       return;
     }
     final r = await storage.read(key: 'refresh');
+    if (r == null || r.isEmpty) {
+      throw PlatformException(
+        code: 'session',
+        message: 'Vui lòng đăng nhập bằng mật khẩu và OTP.',
+      );
+    }
     final d = await Dio(
       BaseOptions(
         baseUrl: baseUrl,
@@ -186,6 +259,8 @@ class Api {
     }
     token = null;
     user = null;
+    appearanceAccount = null;
+    await appearance.selectAccount(null);
     await storage.deleteAll();
     onSessionEnded?.call();
   }
@@ -193,6 +268,23 @@ class Api {
   Future<void> logout() async {
     await post('/api/auth/logout', {});
     await clear();
+  }
+
+  Future<bool> lock() async {
+    if (user == null ||
+        user?['role'] == 'Child' ||
+        !await biometrics.enabled(baseUrl, user?['id'] as String?)) {
+      return false;
+    }
+    final refreshToken = await storage.read(key: 'refresh');
+    if (refreshToken == null || refreshToken.isEmpty) return false;
+    // Giữ phiên mã hóa để lần mở sau xác thực sinh trắc học rồi hỏi backend.
+    token = null;
+    user = null;
+    appearanceAccount = null;
+    await appearance.selectAccount(null);
+    onSessionEnded?.call();
+    return true;
   }
 
   Future<dynamic> get(String path) async => (await dio.get<dynamic>(path)).data;
