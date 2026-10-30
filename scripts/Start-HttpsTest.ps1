@@ -1,5 +1,6 @@
 ﻿param([int]$Port=5080)
 $ErrorActionPreference='Stop'
+$frontendPath = & (Join-Path $PSScriptRoot 'Get-FrontendPath.ps1')
 $root=Split-Path -Parent $PSScriptRoot
 $cli=Join-Path $root 'artifacts/tools/devtunnel.exe'
 $stateFile=Join-Path $root 'secrets/devtunnel.local.json'
@@ -29,8 +30,8 @@ else{
 if($state.port -ne $Port){throw 'Cổng đã lưu khác cổng yêu cầu; không tự đổi cấu hình đang dùng.'}
 if($state.publicUrl){
     try{$online=Invoke-RestMethod ($state.publicUrl+'/health') -Headers @{Accept='application/json'} -TimeoutSec 10;if($online.status -eq 'ready'){
-        New-Item -ItemType Directory -Force -Path (Join-Path $root 'mobile/config')|Out-Null
-        [IO.File]::WriteAllText((Join-Path $root 'mobile/config/api.tunnel.local.json'),(@{API_BASE_URL=$state.publicUrl}|ConvertTo-Json),[Text.UTF8Encoding]::new($false))
+        New-Item -ItemType Directory -Force -Path (Join-Path $frontendPath 'config')|Out-Null
+        [IO.File]::WriteAllText((Join-Path $frontendPath 'config/api.tunnel.local.json'),(@{API_BASE_URL=$state.publicUrl}|ConvertTo-Json),[Text.UTF8Encoding]::new($false))
         Write-Host ('Tunnel đang hoạt động: '+$state.publicUrl);return
     }}catch{}
 }
@@ -47,7 +48,7 @@ $check=Invoke-RestMethod ($url+'/health') -Headers @{Accept='application/json'} 
 if($check.status -ne 'ready'){throw 'HTTPS chưa xác nhận máy chủ sẵn sàng.'}
 $state.publicUrl=$url
 [IO.File]::WriteAllText($stateFile,($state|ConvertTo-Json),[Text.UTF8Encoding]::new($false))
-New-Item -ItemType Directory -Force -Path (Join-Path $root 'mobile/config')|Out-Null
-[IO.File]::WriteAllText((Join-Path $root 'mobile/config/api.tunnel.local.json'),(@{API_BASE_URL=$url}|ConvertTo-Json),[Text.UTF8Encoding]::new($false))
+New-Item -ItemType Directory -Force -Path (Join-Path $frontendPath 'config')|Out-Null
+[IO.File]::WriteAllText((Join-Path $frontendPath 'config/api.tunnel.local.json'),(@{API_BASE_URL=$url}|ConvertTo-Json),[Text.UTF8Encoding]::new($false))
 Write-Host ('HTTPS kiểm thử: '+$url)
 Write-Host 'Laptop, SQL Server, máy chủ và Dev Tunnels vẫn phải bật. Đây chưa phải production.'

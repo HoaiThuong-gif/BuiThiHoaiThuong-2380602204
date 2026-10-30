@@ -1,5 +1,6 @@
 ﻿param([string]$DeviceId='R5CRC0C2T3V')
 $ErrorActionPreference='Stop'
+$frontendPath = & (Join-Path $PSScriptRoot 'Get-FrontendPath.ps1')
 $projectRoot=Split-Path -Parent $PSScriptRoot
 $adb=Join-Path $env:LOCALAPPDATA 'Android/Sdk/platform-tools/adb.exe'
 if($DeviceId -like 'emulator-*'){throw 'Hãy chọn điện thoại USB, không chọn máy ảo.'}
@@ -8,7 +9,7 @@ $devices|Write-Host
 if(!($devices -match ('^'+[regex]::Escape($DeviceId)+'\s+device(?:\s|$)'))){throw 'Chưa nhận điện thoại USB. Mở khóa và cho phép gỡ lỗi USB trên điện thoại.'}
 $flutterCommand=(Get-Command flutter -ErrorAction SilentlyContinue).Source
 if(!$flutterCommand){
-    $properties=Join-Path $projectRoot 'mobile/android/local.properties'
+    $properties=Join-Path $frontendPath 'android/local.properties'
     $sdkLine=Get-Content -LiteralPath $properties|Where-Object {$_ -like 'flutter.sdk=*'}|Select-Object -First 1
     $sdkPath=$sdkLine.Substring('flutter.sdk='.Length).Replace('\:',':').Replace('\\','\')
     $flutterCommand=Join-Path $sdkPath 'bin/flutter.bat'
@@ -62,7 +63,7 @@ try{
     $reply=& $adb -s $DeviceId shell "(cat /data/local/tmp/nhombar-health.txt; sleep 2) | toybox nc -w 5 $($ip.IPAddress) 5080" 2>&1
     if(($reply -join ' ') -notmatch 'HTTP/1\.[01] 200'){throw 'Điện thoại chưa gọi được máy chủ. Không chạy app với địa chỉ chưa kết nối được.'}
 }finally{Remove-Item -LiteralPath $request -ErrorAction SilentlyContinue}
-Push-Location -LiteralPath (Join-Path $projectRoot 'mobile')
+Push-Location -LiteralPath $frontendPath
 try{
     & $flutterCommand devices
     Write-Host "flutter run -d $DeviceId --dart-define=API_BASE_URL=$apiUrl"

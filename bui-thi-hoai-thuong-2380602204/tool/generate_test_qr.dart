@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:qr/qr.dart';
 
-void main() {
+void main(List<String> args) {
   final code = QrImage(
     QrCode.fromData(
       data: 'NHOMBAR-USB-TEST-20261029',
@@ -21,7 +21,7 @@ void main() {
     }
   }
   svg.write('</g></svg>');
-  final file = File('../artifacts/usb-test/qr-check.svg');
+  final file = File(args.isEmpty ? 'build/usb-test/qr-check.svg' : args.first);
   file.parent.createSync(recursive: true);
   file.writeAsStringSync(svg.toString());
   stdout.writeln('Public camera test QR generated: ${file.path}');

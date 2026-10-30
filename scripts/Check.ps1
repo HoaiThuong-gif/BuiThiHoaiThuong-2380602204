@@ -1,4 +1,5 @@
 ﻿$ErrorActionPreference='Stop'
+$frontendPath = & (Join-Path $PSScriptRoot 'Get-FrontendPath.ps1')
 $projectRoot=Split-Path -Parent $PSScriptRoot
 Push-Location -LiteralPath $projectRoot
 try {
@@ -8,7 +9,7 @@ try {
     if($LASTEXITCODE -ne 0){throw 'Kiểm thử máy chủ thất bại.'}
     dotnet run --project tests/EmailApiChecks/EmailApiChecks.csproj
     if($LASTEXITCODE -ne 0){throw 'Kiểm thử Email API thất bại.'}
-    Push-Location -LiteralPath (Join-Path $projectRoot 'mobile')
+    Push-Location -LiteralPath $frontendPath
     try {
         flutter analyze
         if($LASTEXITCODE -ne 0){throw 'Kiểm tra mã ứng dụng thất bại.'}

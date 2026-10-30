@@ -30,3 +30,8 @@ artifacts/
 **/key.properties
 .env.*
 !.env.example
+
+# Share only the IDE project name; keep workspace settings local.
+!**/.idea/
+**/.idea/*
+!**/.idea/.name

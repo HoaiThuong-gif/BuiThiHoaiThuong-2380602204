@@ -46,3 +46,8 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Share only the IDE project name; keep workspace settings local.
+!**/.idea/
+**/.idea/*
+!**/.idea/.name

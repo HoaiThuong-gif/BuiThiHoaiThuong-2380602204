@@ -1,5 +1,44 @@
 # Cách tải và chạy NhomBar từ đầu
 
+## Mở đúng project Flutter trong Android Studio
+
+Tên thư mục gốc của project Flutter là **bui-thi-hoai-thuong-2380602204**. Đây là thư mục thật chứa `pubspec.yaml`, `lib/`, `android/`, `assets/`, không phải chỉ đổi tên ứng dụng hay cửa sổ IDE.
+
+Trên nhánh `main`, cấu trúc là:
+
+```text
+bui-thi-hoai-thuong-2380602204/          # Repository đầy đủ
+├── bui-thi-hoai-thuong-2380602204/      # OPEN thư mục này trong Android Studio
+│   ├── pubspec.yaml
+│   ├── lib/
+│   ├── android/
+│   ├── assets/
+│   └── .run/NhomBar.run.xml
+├── backend/
+├── scripts/
+└── tests/
+```
+
+1. Cài Flutter SDK và plugin **Flutter** (kèm Dart) trong Android Studio.
+2. Chọn **File → Open** và mở thư mục `bui-thi-hoai-thuong-2380602204` bên trong repository `main`. Không chọn riêng `android/` hay thư mục chứa cả backend.
+3. Nếu IDE hỏi Flutter SDK, chọn thư mục SDK đã cài, ví dụ `D:\LTDD\Developmant\flutter`. Không tạo project Flutter mới.
+4. Mở Terminal trong thư mục có `pubspec.yaml`, chạy `flutter pub get`, chờ IDE lập chỉ mục/Gradle sync.
+5. Chạy backend và tunnel theo các bước bên dưới. Script ghi địa chỉ API thật vào `config/api.tunnel.local.json` bên trong Flutter. File này là cấu hình cục bộ, không đưa lên Git.
+6. Chọn cấu hình chạy **NhomBar** từ `.run/NhomBar.run.xml`, chọn thiết bị rồi Run. Nếu tạo cấu hình thủ công, chọn entrypoint `lib/main.dart`, Additional run args `--dart-define-from-file=config/api.tunnel.local.json`.
+7. Thư mục Project có tên **bui-thi-hoai-thuong-2380602204**; Gradle root cũng cùng tên. Dart package trong `pubspec.yaml` vẫn là **nhombar**, vì tên package Dart không được chứa dấu gạch ngang. Tên package không phải tên thư mục để nộp bài.
+
+Để nộp riêng frontend, chạy trong thư mục mới rồi mở trực tiếp thư mục vừa clone:
+
+```powershell
+git clone --branch frontend --single-branch https://github.com/HoaiThuong-gif/BuiThiHoaiThuong-2380602204.git bui-thi-hoai-thuong-2380602204
+Set-Location bui-thi-hoai-thuong-2380602204
+flutter pub get
+```
+
+Trên nhánh `frontend`, `pubspec.yaml`, `lib/`, `android/`, `assets/` nằm ngay ở gốc repository. Không clone vào nơi đã có thư mục cùng tên. [Nhánh frontend](https://github.com/HoaiThuong-gif/BuiThiHoaiThuong-2380602204/tree/frontend) chỉ chứa Flutter và script hỗ trợ frontend; [nhánh backend](https://github.com/HoaiThuong-gif/BuiThiHoaiThuong-2380602204/tree/backend) giữ nguyên. Các bước backend/tunnel bên dưới dành cho nhánh `main`.
+
+Giữ nguyên `android/app/google-services.json`, applicationId/namespace `vn.nhombar.nhombar`, native Java và MethodChannel. Khóa Brevo, JWT, Firebase service account, keystore và cấu hình `*.local.json` không được commit. Đổi thư mục không xóa dữ liệu trên điện thoại hay thay đổi database.
+
 ## Bước 1. Cài phần mềm
 
 Cài lần lượt:
@@ -31,7 +70,7 @@ git clone https://github.com/HoaiThuong-gif/BuiThiHoaiThuong-2380602204.git bui-
 Set-Location bui-thi-hoai-thuong-2380602204
 ```
 
-Thư mục này gọi là **gốc dự án** trong các bước sau, có `backend`, `mobile` và `scripts`. Các terminal mới cần mở tại đây.
+Thư mục này gọi là **gốc dự án** trong các bước sau, có `backend`, `bui-thi-hoai-thuong-2380602204` và `scripts`. Các terminal mới cần mở tại đây.
 
 ## Bước 3. Cấu hình SQL Server và khóa đăng nhập
 
@@ -94,7 +133,7 @@ Nhập địa chỉ gửi đã xác minh và API key khi script hỏi. Khóa đ�
 
 1. Trong Firebase Console, tạo hoặc chọn dự án bạn có quyền quản lý.
 2. Đăng ký ứng dụng Android với package `vn.nhombar.nhombar`.
-3. Tải file cấu hình ứng dụng `google-services.json`, đặt vào `mobile/android/app/google-services.json`. Nếu dùng file có sẵn, cần quyền quản lý đúng dự án Firebase đó.
+3. Tải file cấu hình ứng dụng `google-services.json`, đặt vào `bui-thi-hoai-thuong-2380602204/android/app/google-services.json`. Nếu dùng file có sẵn, cần quyền quản lý đúng dự án Firebase đó.
 4. Trong Project settings → Service accounts, tạo khóa tài khoản dịch vụ và tải JSON về vị trí riêng ngoài source.
 5. Tại gốc dự án:
 
@@ -102,7 +141,7 @@ Nhập địa chỉ gửi đã xác minh và API key khi script hỏi. Khóa đ�
 ./scripts/Configure-Push.ps1
 ```
 
-Nhập đường dẫn file tài khoản dịch vụ khi được hỏi. Hai file Firebase phải cùng dự án. File có `private_key` chỉ dùng trên backend, không chép vào `mobile` hoặc đưa lên Git.
+Nhập đường dẫn file tài khoản dịch vụ khi được hỏi. Hai file Firebase phải cùng dự án. File có `private_key` chỉ dùng trên backend, không chép vào `bui-thi-hoai-thuong-2380602204` hoặc đưa lên Git.
 
 ## Bước 7. Chạy backend
 
@@ -144,12 +183,12 @@ New-Item -ItemType Directory -Force -Path artifacts/tools
 ./scripts/Start-HttpsTest.ps1
 ```
 
-Đăng nhập Microsoft khi công cụ yêu cầu. Script tạo/dùng lại đường hầm và ghi URL thực vào `mobile/config/api.tunnel.local.json`. Không tự điền URL mẫu.
+Đăng nhập Microsoft khi công cụ yêu cầu. Script tạo/dùng lại đường hầm và ghi URL thực vào `bui-thi-hoai-thuong-2380602204/config/api.tunnel.local.json`. Không tự điền URL mẫu.
 
 Kiểm tra kết nối:
 
 ```powershell
-$connection = Get-Content -Raw -Encoding UTF8 'mobile/config/api.tunnel.local.json' | ConvertFrom-Json
+$connection = Get-Content -Raw -Encoding UTF8 'bui-thi-hoai-thuong-2380602204/config/api.tunnel.local.json' | ConvertFrom-Json
 Invoke-RestMethod ($connection.API_BASE_URL.TrimEnd('/') + '/health') -Headers @{Accept='application/json'}
 ```
 
@@ -172,15 +211,15 @@ Ghi lại mã thiết bị Android. Nếu không thấy, kiểm tra cáp/driver 
 Trong terminal tại gốc dự án:
 
 ```powershell
-Set-Location mobile
+Set-Location bui-thi-hoai-thuong-2380602204
 flutter pub get
 $deviceId = Read-Host 'Dán mã thiết bị Android từ flutter devices'
 flutter run -d $deviceId --dart-define-from-file=config/api.tunnel.local.json
 ```
 
-Nếu dùng Android Studio: mở thư mục `mobile`, mở `lib/main.dart`, chọn điện thoại. Trong Run → Edit Configurations → Additional run args, nhập `--dart-define-from-file=config/api.tunnel.local.json` rồi bấm Run.
+Nếu dùng Android Studio: mở thư mục `bui-thi-hoai-thuong-2380602204`, mở `lib/main.dart`, chọn điện thoại. Trong Run → Edit Configurations → Additional run args, nhập `--dart-define-from-file=config/api.tunnel.local.json` rồi bấm Run.
 
-Muốn nhập địa chỉ HTTPS khác đã kiểm tra, chạy tại `mobile`:
+Muốn nhập địa chỉ HTTPS khác đã kiểm tra, chạy tại `bui-thi-hoai-thuong-2380602204`:
 
 ```powershell
 $apiUrl = Read-Host 'Địa chỉ gốc HTTPS thật, không thêm /api hoặc /swagger'
@@ -197,12 +236,12 @@ Cấp quyền theo thông báo: xem thời gian sử dụng để theo dõi, th�
 
 ## Bước 12. Tạo APK để cài thử
 
-Tại thư mục `mobile`, với backend/HTTPS đã cấu hình:
+Tại thư mục `bui-thi-hoai-thuong-2380602204`, với backend/HTTPS đã cấu hình:
 
 ```powershell
 flutter build apk --debug --dart-define-from-file=config/api.tunnel.local.json
 ```
 
-Lấy file `mobile/build/app/outputs/flutter-apk/app-debug.apk` tính từ gốc dự án, chép sang điện thoại và cho phép cài từ nguồn đã chọn. Đây là bản debug để thử.
+Lấy file `bui-thi-hoai-thuong-2380602204/build/app/outputs/flutter-apk/app-debug.apk` tính từ gốc dự án, chép sang điện thoại và cho phép cài từ nguồn đã chọn. Đây là bản debug để thử.
 
 Để chạy lại hôm sau, mở SQL Server, thực hiện bước 7–8 rồi chạy/cài app. Không cần tạo lại database, tài khoản hoặc cấu hình email/Firebase nếu vẫn dùng máy và dịch vụ đã thiết lập.

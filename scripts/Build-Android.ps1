@@ -1,5 +1,6 @@
 ﻿param([Parameter(Mandatory=$true)][string]$ApiUrl,[switch]$Release)
 $ErrorActionPreference='Stop'
+$frontendPath = & (Join-Path $PSScriptRoot 'Get-FrontendPath.ps1')
 $parsedUrl=$null
 if(-not [Uri]::TryCreate($ApiUrl,[UriKind]::Absolute,[ref]$parsedUrl)){throw 'Địa chỉ máy chủ không hợp lệ.'}
 if($Release -and ($parsedUrl.Scheme -ne 'https' -or $parsedUrl.Port -ne 443 -or $parsedUrl.IsLoopback -or $parsedUrl.HostNameType -ne [UriHostNameType]::Dns -or !$parsedUrl.Host.Contains('.') -or $parsedUrl.Host -match '(localhost|\.local|\.lan|\.internal|\.test|\.invalid|\.localdomain)$' -or $parsedUrl.AbsolutePath -ne '/' -or $parsedUrl.UserInfo -or $parsedUrl.Query -or $parsedUrl.Fragment)){throw 'Bản phát hành cần tên miền HTTPS công khai thật.'}
@@ -9,11 +10,11 @@ if($Release){
     if(!(Test-Path -LiteralPath $env:NHOMBAR_KEYSTORE)){throw 'Không tìm thấy kho khóa ký.'}
     $health=Invoke-RestMethod -Uri ($ApiUrl.TrimEnd('/')+'/health/deployment') -TimeoutSec 60
     if($health.environment -ne 'Production' -or !$health.database -or !$health.schemaCurrent -or !$health.emailConfigured -or !$health.pushConfigured -or $health.publicUrl.TrimEnd('/') -ne $ApiUrl.TrimEnd('/')){throw 'Máy chủ production chưa sẵn sàng. Không tạo APK phân phối.'}
-    $clientPath=Join-Path (Split-Path -Parent $PSScriptRoot) 'mobile/android/app/google-services.json'
+    $clientPath=Join-Path $frontendPath 'android/app/google-services.json'
     $client=Get-Content -Raw -Encoding utf8 -LiteralPath $clientPath|ConvertFrom-Json
     if($client.project_info.project_id -ne $health.firebaseProjectId){throw 'Firebase của ứng dụng và máy chủ không cùng dự án.'}
 }
-Push-Location -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'mobile')
+Push-Location -LiteralPath $frontendPath
 try {
     $mode=if($Release){'--release'}else{'--debug'}
     flutter build apk $mode "--dart-define=API_BASE_URL=$ApiUrl"

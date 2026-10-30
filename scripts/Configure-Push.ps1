@@ -1,7 +1,8 @@
 ﻿$ErrorActionPreference='Stop'
+$frontendPath = & (Join-Path $PSScriptRoot 'Get-FrontendPath.ps1')
 $root=Split-Path -Parent $PSScriptRoot
-$clientPath=Join-Path $root 'mobile/android/app/google-services.json'
-if(!(Test-Path -LiteralPath $clientPath)){throw 'Lưu google-services.json của ứng dụng Android vào mobile/android/app trước.'}
+$clientPath=Join-Path $frontendPath 'android/app/google-services.json'
+if(!(Test-Path -LiteralPath $clientPath)){throw 'Lưu google-services.json của ứng dụng Android vào bui-thi-hoai-thuong-2380602204/android/app trước.'}
 $source=(Read-Host 'Đường dẫn file JSON tài khoản dịch vụ Firebase (chỉ dùng trên máy chủ)').Trim('"')
 $service=Get-Content -Raw -Encoding utf8 -LiteralPath $source|ConvertFrom-Json
 $client=Get-Content -Raw -Encoding utf8 -LiteralPath $clientPath|ConvertFrom-Json
